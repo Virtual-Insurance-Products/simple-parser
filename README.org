@@ -1,0 +1,48 @@
+#+TITLE: simple-parser.asd
+
+* Simple Parser
+This is a /very/ simple common lisp parsing framework. I /think/ that
+it is (more or less at least) functionally equivalent to things like
+Haskell's parsec library. It is a parser combinator library.
+
+A parser constructed in this library is a function called in a parser
+context (which uses CL dynamic variables bound by #'execute-parser)
+and which may consume 0 or more characters from the input string and
+is expected to return a non nil value if it succeeds.
+
+Since, when run in the context of a dynamically bound parser state, a
+parser is just a function we can use normal CL special forms like
+~or~, ~if~ and ~when~ in building up parsers. 
+
+Calling ~sp-error~ when something is missing yields a very descriptive
+error message describing exactly where in the parser the error
+happened. 
+
+#+begin_src lisp
+(in-package :simple-parser)
+
+(execute-parser (lambda () (sp-starts-with "Hi"))
+                "Hi there"
+                :allow-trailing-junk t)
+
+(defun greet ()
+  (when (or (sp-starts-with "Hi ")
+            (sp-starts-with "Hello "))
+    ;; Use a regular expression (must be tied to the start) to get the next bit
+    (list 'greet
+          (or (sp-scan "^[a-z]+" :ignore-case t)
+              (sp-error "Missing person's name")))))
+
+(execute-parser #'greet "Hi John")
+(execute-parser #'greet "Hi .")
+;; Missing person's name at input character 4
+;; =======================
+;; Hi <<<HERE>>>.
+
+
+#+end_src
+
+Finally, there is ~sp-try~ which allows optional infinite lookahead by
+grabbing and saving the parser state and, if the parse inside the
+sp-try block fails, restoring it. Otherwise the parsers don't do any
+lookahead.  
